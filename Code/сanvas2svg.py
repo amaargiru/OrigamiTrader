@@ -80,8 +80,7 @@ def main():
                            fill='#EEEEEE',
                            stroke='#888888',
                            **{'fill-opacity': '0.25',
-                              'stroke-width': '1'}
-                           )
+                              'stroke-width': '1'})
 
         if 'label' in node:
             text_elem = XmlTree.SubElement(svg, 'text',
@@ -169,6 +168,9 @@ def main():
 
     with open(output_file, 'w') as f:
         f.write(pretty_xml)
+        f.flush()
+
+    fix_html_links_in_svg(output_file)
 
 
 def get_side_coordinates(node, side, dx, dy):
@@ -186,6 +188,28 @@ def get_side_coordinates(node, side, dx, dy):
         return x + w, y + h / 2
     else:
         return x + w / 2, y + h / 2
+
+
+def fix_html_links_in_svg(input_file, output_file=None):
+    """Заменяет экранированные HTML-теги в ссылках SVG на настоящие теги"""
+    if output_file is None:
+        output_file = input_file
+
+    with open(input_file, 'r', encoding='utf-8') as f:
+        lines = f.readlines()
+
+    # Обрабатываем только строки, содержащие ссылки
+    processed_lines = []
+    for line in lines:
+        if 'a href' in line:
+            # Заменяем экранированные теги на настоящие
+            line = line.replace('&lt;', '<').replace('&gt;', '>')
+        processed_lines.append(line)
+
+    # Сохраняем результат
+    with open(output_file, 'w', encoding='utf-8') as f:
+        f.writelines(processed_lines)
+        f.flush()
 
 
 if __name__ == "__main__":
