@@ -4,6 +4,30 @@ import sys
 import xml.etree.ElementTree as XmlTree
 from pathlib import Path
 from xml.dom import minidom
+import textwrap  # Добавляем импорт библиотеки textwrap
+
+
+def wrap_text_to_fit_rect(text, rect_width, font_size=18):
+    """Разбивает текст на строки, чтобы он помещался в прямоугольник заданной ширины"""
+    if not text:
+        return [""]
+
+    # Приблизительная оценка количества символов в строке
+    # Предполагаем, что в среднем один символ занимает 0.6 ширины шрифта
+    chars_per_line = max(1, int(rect_width / (font_size * 0.6)))
+
+    # Проверяем, нужно ли разбивать текст
+    if len(text) <= chars_per_line or 'a href' in text:
+        return [text]
+
+    # Используем библиотеку textwrap для надежного разбиения текста
+    lines = textwrap.wrap(text, width=chars_per_line, break_long_words=True, break_on_hyphens=True)
+
+    # Если текст не разбился на строки (например, если он пустой), возвращаем пустую строку
+    if not lines:
+        return [""]
+
+    return lines
 
 
 def main():
@@ -108,14 +132,29 @@ def main():
                            **{'fill-opacity': '0.25',
                               'stroke-width': '2'})
 
-        text_elem = XmlTree.SubElement(svg, 'text',
-                                       x=str(x + width / 2),
-                                       y=str(y + height / 2),
-                                       **{'text-anchor': 'middle',
-                                          'dominant-baseline': 'middle',
-                                          'font-family': 'Arial',
-                                          'font-size': '18'})
-        text_elem.text = node.get('text', '')
+        # Разбиваем текст на строки, чтобы он помещался в прямоугольник
+        text_content = node.get('text', '')
+        font_size = 18
+        lines = wrap_text_to_fit_rect(text_content, width, font_size)
+        line_height = font_size * 1.2  # Высота строки примерно в 1.2 раза больше размера шрифта
+
+        # Рассчитываем общую высоту текста
+        total_text_height = len(lines) * line_height
+
+        # Вычисляем начальную позицию y для первой строки, чтобы центрировать текст вертикально
+        start_y = y + (height - total_text_height) / 2 + line_height / 2
+
+        # Создаем текстовый элемент для каждой строки
+        for i, line in enumerate(lines):
+            line_y = start_y + i * line_height
+            text_elem = XmlTree.SubElement(svg, 'text',
+                                           x=str(x + width / 2),
+                                           y=str(line_y),
+                                           **{'text-anchor': 'middle',
+                                              'dominant-baseline': 'middle',
+                                              'font-family': 'Arial',
+                                              'font-size': str(font_size)})
+            text_elem.text = line
 
     # Draw edges
     for edge in edges:
@@ -195,8 +234,14 @@ def fix_html_links_in_svg(input_file, output_file=None):
     if output_file is None:
         output_file = input_file
 
+    lines = []
+
     with open(input_file, 'r', encoding='utf-8') as f:
-        lines = f.readlines()
+        for line in f:
+            try:
+                lines.append(line)  # Добавляем каждую строку в список
+            except Exception as e:
+                print(f"Ошибка при обработке строки: {line}. Ошибка: {e}")
 
     # Обрабатываем только строки, содержащие ссылки
     processed_lines = []
